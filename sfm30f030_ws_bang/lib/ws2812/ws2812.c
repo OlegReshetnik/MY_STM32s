@@ -1,0 +1,192 @@
+#include "ws2812.h"
+
+uint8_t leds[NUM_BYTES];
+
+#ifdef WS_GAMMA_TABLE
+    const uint8_t wsGammaTable[256] = {
+        0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 5,
+        5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 8, 8,
+        9, 10, 10, 10, 10, 11, 11, 12, 12, 12, 12, 13, 13, 13, 14, 14,
+        15, 15, 15, 16, 17, 17, 17, 17, 18, 18, 19, 20, 20, 20, 20, 21,
+        22, 22, 23, 23, 23, 24, 25, 25, 26, 26, 27, 27, 28, 28, 29, 30,
+        30, 31, 31, 32, 33, 33, 34, 35, 35, 36, 37, 37, 38, 38, 39, 40,
+        41, 41, 42, 43, 44, 45, 45, 46, 47, 47, 48, 49, 50, 51, 52, 53,
+        54, 54, 55, 56, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67,
+        68, 69, 69, 70, 71, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84,
+        85, 86, 87, 89, 90, 91, 93, 94, 95, 96, 97, 98, 100, 101, 102, 103,
+        105, 106, 108, 109, 110, 111, 113, 115, 117, 118, 119, 121, 122, 123, 124, 127,
+        128, 130, 131, 133, 134, 136, 137, 139, 140, 143, 145, 146, 147, 148, 151, 153,
+        154, 156, 158, 159, 162, 163, 165, 167, 169, 171, 173, 174, 176, 179, 180, 182,
+        185, 186, 188, 190, 192, 194, 196, 199, 201, 202, 205, 207, 209, 211, 214, 216,
+        218, 220, 223, 225, 226, 230, 231, 235, 236, 240, 241, 245, 246, 250, 251, 255,
+    };
+    #define wsGamma(val)    wsGammaTable[val]
+#else
+    uint8_t wsGamma(uint8_t val) { return ((uint32_t)val * val + 255) >> 8; }
+#endif
+
+void WsInit(void) {
+    RCC->AHBENR |= RCC_AHBENR_GPIOAEN; // enable clock AHB, PA6
+    GPIOA->MODER |= GPIO_MODER_MODER6_0; // General purpose output mode PA6
+    GPIOA->OSPEEDR |= GPIO_OSPEEDR_OSPEEDR6_0 | GPIO_OSPEEDR_OSPEEDR6_1; // 11: High speed PA6
+}
+
+void WsSend(void) {
+	uint8_t b, m;
+    uint8_t *data = leds;
+    uint16_t len = NUM_BYTES;
+     __disable_irq();
+    while (len--) {
+        b = *data++; m = 0x80;
+        while (m) {
+            if (m & b) {
+                GPIOA->ODR |= 1 << WS_PIN;
+                asm volatile ("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+                GPIOA->ODR &= ~(1 << WS_PIN);
+				asm volatile ("nop; nop; nop; nop;");
+            } else {
+                GPIOA->ODR |= 1 << WS_PIN;
+                asm volatile ("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+                GPIOA->ODR &= ~(1 << WS_PIN);
+				asm volatile ("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+            }
+            m >>= 1;
+        }
+    }
+	__enable_irq();
+}
+
+uint16_t rand16seed;
+
+uint16_t random16(void) {
+    rand16seed *= (uint16_t)2053;
+    rand16seed += (uint16_t)13849;
+    return rand16seed;
+}
+
+uint8_t random8(void) {
+    random16();
+    return (uint8_t)(((uint8_t)(rand16seed & 0xFF)) + ((uint8_t)(rand16seed >> 8)));
+}
+
+uint8_t random8_1(uint8_t lim) {
+    uint8_t r = random8();
+    r = (r*lim) >> 8;
+    return r;
+}
+
+uint8_t random8_2(uint8_t min, uint8_t lim) {
+    return (random8_1(lim - min) + min);
+}
+
+uint8_t wsSub(uint8_t i, uint8_t j) {
+    int t = i - j;
+    if (t < 0) t = 0;
+    return t;
+}
+
+uint8_t wsAdd( uint8_t i, uint8_t j) {
+    unsigned int t = i + j;
+    if( t > 255) t = 255;
+    return t;
+}
+
+uint8_t wsFade(uint8_t val, uint8_t fade) { return ( ((uint32_t)val * (uint32_t)fade) >> 8 ) + ((val && fade)? 1: 0); }
+
+void setRGB(uint8_t r, uint8_t g, uint8_t b, uint16_t idx, uint8_t fade) {
+    uint8_t *grb = &leds[idx*3];
+    *grb++ = wsGamma(wsFade(g, fade));
+    *grb++ = wsGamma(wsFade(r, fade));
+    *grb++ = wsGamma(wsFade(b, fade));
+}
+
+// CRGB HeatColor(uint8_t temperature)
+// Approximates a 'black body radiation' spectrum for
+// a given 'heat' level.  This is useful for animations of 'fire'.
+// Heat is specified as an arbitrary scale from 0 (cool) to 255 (hot).
+// This is NOT a chromatically correct 'black body radiation'
+// spectrum, but it's surprisingly close, and it's fast and small.
+void HeatColor(uint8_t temperature, uint16_t idx, uint8_t fade) {
+    uint8_t r, g, b;
+    uint8_t t192 = wsFade(temperature, 191);
+    uint8_t heatramp = t192 & 0x3F;
+    heatramp <<= 2;
+    if (t192 & 0x80) { r = 255; g = 255; b = heatramp; }
+    else if (t192 & 0x40) { r = 255; g = heatramp; b = 0; }
+    else { r = heatramp; g = 0; b = 0; }
+    setRGB(r, g, b, idx, fade);
+}
+
+void WsWheel(uint8_t color, uint16_t idx, uint8_t fade) {
+	uint8_t shift, r, g, b;
+    if (color > 170) { shift = (color - 170) * 3; r = shift; g = 0; b = 255 - shift; }
+    else if (color > 85) { shift = (color - 85) * 3; r = 0; g = 255 - shift; b = shift; }
+    else { shift = color * 3; r = 255 - shift; g = shift; b = 0; }
+    setRGB(r, g, b, idx, fade);
+}
+
+void HSV2RGB(uint8_t h, uint8_t s, uint8_t v, uint16_t idx, uint8_t fade) {
+    uint8_t r, g, b;
+    uint8_t value = ((24 * h / 17) / 60) % 6;
+    uint8_t vmin = (long)v - v * s / 255;
+    uint8_t a = (long)v * s / 255 * (h * 24 / 17 % 60) / 60;
+    uint8_t vinc = vmin + a;
+    uint8_t vdec = v - a;
+    switch (value) {
+        case 0: r = v; g = vinc; b = vmin; break;
+        case 1: r = vdec; g = v; b = vmin; break;
+        case 2: r = vmin; g = v; b = vinc; break;
+        case 3: r = vmin; g = vdec; b = v; break;
+        case 4: r = vinc; g = vmin; b = v; break;
+        case 5: r = v; g = vmin; b = vdec; break;
+    }
+    setRGB(r, g, b, idx, fade);
+}
+
+// *************************** Колесо **************************
+#define WEEL_FPS    30
+void wsWeel(void) {
+    static uint8_t nn = 255, fade = 127, inc = 1;
+
+    for (uint8_t i=0; i<NUM_LEDS; i++) { WsWheel(nn+i*11, i, fade); }
+    nn -= 2;
+    fade += inc;
+    if (fade > 252) { inc = 255; }
+    else if (fade < 50) { inc = 1; } 
+}
+// *************************** End Колесо **************************
+
+// *************************** Огонь **************************
+#define COOLING		1000
+#define SPARKING	100
+#define MIN_HOT	    130
+#define MAX_HOT	    250
+#define FIRE_FPS    80
+void wsFire(void) {
+	static uint8_t heat[NUM_LEDS];
+	    for (uint16_t i = 0; i < NUM_LEDS; i++) { heat[i] = wsSub( heat[i], random8_1(COOLING/NUM_LEDS+2) ); } // Step 1.  Cool down every cell a little
+	    for (uint16_t i = NUM_LEDS - 1; i >= 2; i--) { heat[i] = (heat[i-1] + heat[i-2] + heat[i-2] ) / 3; } // Step 2.  Heat from each cell drifts 'up' and diffuses a little
+	    if (random8() < SPARKING) { uint8_t y = random8_1(5); heat[y] = wsAdd(heat[y], random8_2(MIN_HOT, MAX_HOT)); } // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
+	    for (uint16_t i = 0; i < NUM_LEDS; i++) { uint8_t hh = wsFade(heat[i], 240); HeatColor(hh, i, 255); } // Step 4.  Map from heat cells to LED colors
+}
+// *************************** End Огонь **************************
+
+// ****************************** ЦВЕТА ******************************
+void wsColors(void) {
+    static uint8_t hue = 0, nn = 255, fade = 127, inc = 1;
+
+    hue += 3;
+    fade += inc;
+    if (fade > 252) { inc = 255; }
+    else if (fade < 50) { inc = 1; } 
+    for (uint16_t i=0; i<NUM_LEDS; i++) { HSV2RGB(hue, 255, 255, i, fade); }
+}
+
+// ****************************** КОНФЕТТИ ******************************
+#define TRACK_STEP 40
+void wsSparkles(void) {
+    for (uint16_t i=0; i<NUM_BYTES; i++) { leds[i] = wsSub(leds[i], TRACK_STEP); }
+	uint16_t i = random8_1(NUM_LEDS);
+	if ((leds[i*3] + leds[i*3+1] + leds[i*3+2]) == 0) { HSV2RGB(random8(), 255, 255, i, random8_2(150, 255)); }
+}
