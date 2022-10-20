@@ -218,18 +218,16 @@ void wsBugs(void) {
 #define BEAT_START	75
 #define BEAT_STEP	(210/NUM_LEDS)
 void wsBeat(void) {
-	static uint8_t pos = 0, inc = 1, fade = 127, finc = 1;
+	static uint8_t pos = 0, inc = 4, fade = 127, finc = 1;
 
 	wsClear();
 	for(uint8_t i=0; i<pos; i++) { HSV2RGB(BEAT_STEP*i+BEAT_START, 255, 255, i, fade); }
 
 	pos += inc;
 	if (pos > (NUM_LEDS - 1)) { inc = 255; }
-	else if (pos < 1) { inc = 1; }
+	else if (pos < 1) { inc = 4; }
 
 	fade += finc;
 	if (fade > 254) { finc = 255; }
 	else if (fade < 40) { finc = 1; }
-
-
 }
