@@ -55,23 +55,20 @@ void WsSend(void) {
 	TIM14->CR1 &=  ~(TIM_CR1_CEN); // Counter disabled
 }
 
-uint16_t rand16seed;
-
 uint16_t random16(void) {
+	static uint16_t rand16seed;
 	rand16seed *= (uint16_t)2053;
 	rand16seed += (uint16_t)13849;
 	return rand16seed;
 }
 
 uint8_t random8(void) {
-	random16();
-	return (uint8_t)(((uint8_t)(rand16seed & 0xFF)) + ((uint8_t)(rand16seed >> 8)));
+	uint16_t rand = random16();
+	return (uint8_t)(((uint8_t)(rand & 0xFF)) + ((uint8_t)(rand >> 8)));
 }
 
 uint8_t random8_1(uint8_t lim) {
-	uint8_t r = random8();
-	r = (r*lim) >> 8;
-	return r;
+	return ((random8()*lim + lim) >> 8);
 }
 
 uint8_t random8_2(uint8_t min, uint8_t lim) {
@@ -137,7 +134,6 @@ void HSV2RGB(uint8_t h, uint8_t s, uint8_t v, uint16_t idx, uint8_t fade) {
 }
 
 // *************************** Колесо **************************
-#define WEEL_FPS    30
 void wsWeel(void) {
 	static uint8_t nn = 255, fade = 127, inc = 1;
 
@@ -154,7 +150,6 @@ void wsWeel(void) {
 #define SPARKING	150
 #define MIN_HOT	    120
 #define MAX_HOT	    230
-#define FIRE_FPS    80
 void wsFire(void) {
 	static uint8_t heat[NUM_LEDS];
 		for (uint16_t i = 0; i < NUM_LEDS; i++) { // Step 1.  Cool down every cell a little
@@ -194,7 +189,6 @@ void wsSparkles(void) {
 // ****************************** СВЕТЛЯЧКИ ******************************
 #define MAX_SPEEDx2		500
 #define BUGS_AMOUNT 	3
-
 void wsBugs(void) {
 	static int8_t speed[BUGS_AMOUNT];
 	static int8_t pos[BUGS_AMOUNT];
