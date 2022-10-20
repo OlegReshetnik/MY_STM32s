@@ -118,14 +118,6 @@ void HeatColor(uint8_t temperature, uint16_t idx, uint8_t fade) {
 	setRGB(r, g, b, idx, fade);
 }
 
-// void WsWheel(uint8_t color, uint16_t idx, uint8_t fade) {
-// 	uint8_t shift, r, g, b;
-//     if (color > 170) { shift = (color - 170) * 3; r = shift; g = 0; b = 255 - shift; }
-//     else if (color > 85) { shift = (color - 85) * 3; r = 0; g = 255 - shift; b = shift; }
-//     else { shift = color * 3; r = 255 - shift; g = shift; b = 0; }
-//     setRGB(r, g, b, idx, fade);
-// }
-
 void HSV2RGB(uint8_t h, uint8_t s, uint8_t v, uint16_t idx, uint8_t fade) {
 	uint8_t r, g, b;
 	uint8_t value = ((24 * h / 17) / 60) % 6;
@@ -149,7 +141,7 @@ void HSV2RGB(uint8_t h, uint8_t s, uint8_t v, uint16_t idx, uint8_t fade) {
 void wsWeel(void) {
 	static uint8_t nn = 255, fade = 127, inc = 1;
 
-	for (uint8_t i=0; i<NUM_LEDS; i++) { HSV2RGB(nn+i*11, 255, 255, i, fade); } //WsWheel(nn+i*11, i, fade); }
+	for (uint8_t i=0; i<NUM_LEDS; i++) { HSV2RGB(nn+i*11, 255, 255, i, fade); }
 	nn -= 2;
 	fade += inc;
 	if (fade > 254) { inc = 255; }
