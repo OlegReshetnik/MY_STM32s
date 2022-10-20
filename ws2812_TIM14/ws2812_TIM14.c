@@ -192,41 +192,30 @@ void wsSparkles(void) {
 }
 
 // ****************************** СВЕТЛЯЧКИ ******************************
-#define MAX_SPEED 20
-#define BUGS_AMOUNT 3
+#define MAX_SPEEDx2		500
+#define BUGS_AMOUNT 	3
 
 void wsBugs(void) {
 	static int8_t speed[BUGS_AMOUNT];
 	static int8_t pos[BUGS_AMOUNT];
 	static uint8_t bugsHue[BUGS_AMOUNT];
-	static uint8_t loadFlag = 0;
-	//static uint8_t delta = 0;
-	
-	if (!loadFlag) {
-	loadFlag = 1;
-	for (uint8_t i = 0; i < BUGS_AMOUNT; i++) {
-		bugsHue[i] = random8_2(100, 190);
-		pos[i] = random8_1(NUM_LEDS);
-		speed[i] = (int8_t)(random8_1(11)) - 5;
-		}
-	}
-
-	for (uint8_t i = 0; i < BUGS_AMOUNT; i++) { bugsHue[i] += random8_1(2); }
+	static uint8_t flag = 1;
 	
 	wsClear();
+
 	for (uint8_t i = 0; i < BUGS_AMOUNT; i++) {
-		speed[i] += (int8_t)(random8_1(11)) - 5;
-		if (speed[i] == 0) speed[i] += (int8_t)(random8_1(11)) - 5;
-		if ((speed[i]*2) > (MAX_SPEED*2)) speed[i] = 0;
-		pos[i] += speed[i]/10;
-		if (pos[i] < 0) {
-			pos[i] = 0;
-			speed[i] = -speed[i];
-		}
-		else if(pos[i] > (NUM_LEDS - 1)) {
-			pos[i] = NUM_LEDS - 1;
-			speed[i] = -speed[i];
-		}
+		bugsHue[i] += (flag)? random8(): random8_1(2);
+
+		speed[i] += (int8_t)(random8()) - 127;
+		if (speed[i] == 0) { speed[i] = (int8_t)(random8()) - 127; }
+		else if ((speed[i]*2) > MAX_SPEEDx2) { speed[i] = 0; }
+
+		pos[i] += (flag)? random8_1(NUM_LEDS): speed[i]/100;
+		if (pos[i] < 0) { pos[i] = 0; speed[i] = -speed[i]; }
+		else if(pos[i] > (NUM_LEDS - 1)) { pos[i] = NUM_LEDS - 1; speed[i] = -speed[i]; }
+
 		HSV2RGB(bugsHue[i], 255, 255, (uint8_t)pos[i], 255);
 	}
+
+	if (flag) {flag = 0;}
 }
